@@ -1,6 +1,6 @@
 ---
-title: "EV Power - Lab 4 Project Report"
-format: typst
+title: "Growth of Renewable Usage Between 2021 and 2023 - Lab 4 Project Report"
+format: pdf
 ---
 
 # Example Solution 1
@@ -8,27 +8,102 @@ format: typst
 ## **Part 0: libraries**
 
 ```{r}
+library(tidyverse)
+library(stringr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(maps)
+library(sf)
 
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: Which areas in the United States have the highest renewable energy growth and most ethical EV usage from 2021 to 2023?
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
+remove_details <- function(x) 
+  as.numeric(str_replace_all(x, "[^0-9.]", "")
+)
+
+first <- read_csv("/Users/abhinavgoel/ev-power-Abh1navgoel459/data/renew-use-2021.csv")
+first$State <- toupper(first$State)
+
+summary_one <- first %>%
+  mutate(Renewable_Use_2021 = remove_details(Renewable_Use_2021)) %>%
+  group_by(State) %>%
+  summarise(total = sum(Renewable_Use_2021)) %>%
+  mutate(year = 2021)
+
+second <- read_csv("/Users/abhinavgoel/ev-power-Abh1navgoel459/data/renew-use-2022.csv")
+second$State <- toupper(second$State)
+
+summary_two <- second %>%
+  mutate(Renewable_Use_2022 = remove_details(Renewable_Use_2022)) %>%
+  group_by(State) %>%
+  summarise(total = sum(Renewable_Use_2022)) %>%
+  mutate(year = 2022)
+
+third <- read_csv("/Users/abhinavgoel/ev-power-Abh1navgoel459/data/renew-use-2023.csv")
+third$State <- toupper(third$State)
+
+summary_three <- third %>%
+  mutate(Renewable_Use_2023 = remove_details(Renewable_Use_2023)) %>%
+  group_by(State) %>%
+  summarise(total = sum(Renewable_Use_2023)) %>%
+  mutate(year = 2023)
+
+agg <- bind_rows(summary_one, summary_two, summary_three)
+
+print(head(agg))
 
 ```
 
 ## **Part 3: Joining / Pivoting Datasets for Analysis**
 
 ```{r}
+pivoted <- pivot_wider(
+  data = agg,
+  names_from = year,
+  values_from = total,
+  names_prefix = "total_"
+  )
+
+pivoted$total_growth<- pivoted$total_2023 - pivoted$total_2021
+pivoted$percent_growth <- ((pivoted$total_2023 - pivoted$total_2021) / pivoted$total_2021) * 100
+
+print(head(pivoted))
 
 ```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
-
+ggplot(
+  left_join(
+    st_as_sf(map("state", fill = TRUE, plot = FALSE)),
+    pivoted %>% mutate(State = tolower(state.name[match(State, state.abb)])),
+    by = c("ID" = "State")
+    )
+  ) +
+  geom_sf(aes(fill = percent_growth)) +
+  scale_fill_gradient(low = "pink", 
+                      high = "darkred",
+                      name = "Growth Percentage") +
+  labs(
+    title = "Renewables Growth Percentage by State between 2021 and 2023",
+  ) +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    plot.title = element_text(),
+  )
 ```
+
+## **Overview and Analysis**
+Overview: We have seen EV usage grow dramatically in the past couple of years, fueled by innovation in the EV space from players like Tesla and Rivian. This has led to the slow phasing out of gas, which has been a trend mirroed in all renewables. With the adoption of electric cars, solar panels, and even electric stoves, gas has become less and less of a necessity. From my question, I hope to see how much renewable energy growth has occurred between 2021 and 2023, helping us understand how popular renewables have become and how EVs have thus been able to thrive. 
+
+Analysis: From our graph, we that states like Texas, New Mexico, and California have the highest renewable energy usage, which is crucial, because this likely means that these states have some of the highest usages of EVs as well. We can see that more western states have higher renewable usage, whereas more east-coast and central states tend to be lower. Rather, midwestern states, specifically midwestern states tending more towards the east coast, actually had a decrease in renewable energy usage, the most egregious offender being Tennessee, dropping ~10 percent. This is crucial, because with greater implementation of renewables in the west as well, we can see that the west has contributed more to better and more ethical use of EVs, as EVs are not being powered by gas, but rather by the clean and efficient renewable energy that is being produced. 
